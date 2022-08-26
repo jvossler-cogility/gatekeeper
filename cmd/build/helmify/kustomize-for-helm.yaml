@@ -1,0 +1,286 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gatekeeper-webhook-service
+  namespace: gatekeeper-system
+spec:
+  HELMSUBST_SERVICE_TYPE: ""
+  HELMSUBST_SERVICE_HEALTHZ: ""
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: configs.config.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: constrainttemplates.templates.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: constrainttemplatepodstatuses.status.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: constraintpodstatuses.status.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: mutatorpodstatuses.status.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: assignmetadata.mutations.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: assign.mutations.gatekeeper.sh
+status: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: providers.externaldata.gatekeeper.sh
+status: null
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gatekeeper-controller-manager
+  namespace: gatekeeper-system
+spec:
+  replicas: HELMSUBST_DEPLOYMENT_REPLICAS
+  template:
+    metadata:
+      annotations:
+        HELMSUBST_ANNOTATIONS: ""
+    spec:
+      containers:
+        - name: manager
+          args:
+            - --port=HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_PORT
+            - --health-addr=:HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_HEALTH_PORT
+            - --prometheus-port=HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_METRICS_PORT
+            - --logtostderr
+            - --log-denies={{ .Values.logDenies }}
+            - --emit-admission-events={{ .Values.emitAdmissionEvents }}
+            - --log-level={{ .Values.logLevel }}
+            - --exempt-namespace={{ .Release.Namespace }}
+            - --operation=webhook
+            - --enable-external-data={{ .Values.enableExternalData }}
+            - --log-mutations={{ .Values.logMutations }}
+            - --mutation-annotations={{ .Values.mutationAnnotations }}
+            - --disable-cert-rotation={{ .Values.controllerManager.disableCertRotation }}
+            - HELMSUBST_METRICS_BACKEND_ARG
+            - HELMSUBST_TLS_HEALTHCHECK_ENABLED_ARG
+            - HELMSUBST_MUTATION_ENABLED_ARG
+            - HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_DISABLED_BUILTIN
+            - HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_EXEMPT_NAMESPACES
+            - HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_EXEMPT_NAMESPACE_PREFIXES
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          HELMSUBST_AUDIT_CONTROLLER_MANAGER_DEPLOYMENT_IMAGE_RELEASE: ""
+          ports:
+          - containerPort: HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_PORT
+            name: webhook-server
+            protocol: TCP
+          - containerPort: HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_METRICS_PORT
+            name: metrics
+            protocol: TCP
+          - containerPort: HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_HEALTH_PORT
+            name: healthz
+            protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_HEALTH_PORT
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_HEALTH_PORT
+          securityContext:
+            HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_SECURITY_CONTEXT: ""
+          resources:
+            HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_CONTAINER_RESOURCES: ""
+      nodeSelector:
+        HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_NODE_SELECTOR: ""
+      securityContext:
+        HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_POD_SECURITY_CONTEXT: ""
+      affinity:
+        HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_AFFINITY: ""
+      tolerations:
+        HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_TOLERATIONS: ""
+      imagePullSecrets:
+        HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_IMAGE_PULL_SECRETS: ""
+      hostNetwork: HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_HOST_NETWORK
+      dnsPolicy: HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_DNS_POLICY
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gatekeeper-audit
+  namespace: gatekeeper-system
+spec:
+  template:
+    metadata:
+      annotations:
+        HELMSUBST_ANNOTATIONS: ""
+    spec:
+      containers:
+        - name: manager
+          args:
+            - --audit-interval={{ .Values.auditInterval }}
+            - --log-level={{ .Values.logLevel }}
+            - --constraint-violations-limit={{ .Values.constraintViolationsLimit }}
+            - --audit-from-cache={{ .Values.auditFromCache }}
+            - --audit-chunk-size={{ .Values.auditChunkSize }}
+            - --audit-match-kind-only={{ .Values.auditMatchKindOnly }}
+            - --emit-audit-events={{ .Values.emitAuditEvents }}
+            - --operation=audit
+            - --operation=status
+            - HELMSUBST_MUTATION_STATUS_ENABLED_ARG
+            - --logtostderr
+            - --health-addr=:HELMSUBST_DEPLOYMENT_AUDIT_HEALTH_PORT
+            - --prometheus-port=HELMSUBST_DEPLOYMENT_AUDIT_METRICS_PORT
+            - --enable-external-data={{ .Values.enableExternalData }}
+            - HELMSUBST_METRICS_BACKEND_ARG
+            - --disable-cert-rotation={{ .Values.audit.disableCertRotation }}
+          imagePullPolicy: "{{ .Values.image.pullPolicy }}"
+          HELMSUBST_AUDIT_CONTROLLER_MANAGER_DEPLOYMENT_IMAGE_RELEASE: ""
+          ports:
+          - containerPort: HELMSUBST_DEPLOYMENT_AUDIT_METRICS_PORT
+            name: metrics
+            protocol: TCP
+          - containerPort: HELMSUBST_DEPLOYMENT_AUDIT_HEALTH_PORT
+            name: healthz
+            protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: HELMSUBST_DEPLOYMENT_AUDIT_HEALTH_PORT
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: HELMSUBST_DEPLOYMENT_AUDIT_HEALTH_PORT
+          securityContext:
+            HELMSUBST_DEPLOYMENT_AUDIT_SECURITY_CONTEXT: ""
+          resources:
+            HELMSUBST_DEPLOYMENT_AUDIT_CONTAINER_RESOURCES: ""
+      nodeSelector:
+        HELMSUBST_DEPLOYMENT_AUDIT_NODE_SELECTOR: ""
+      securityContext:
+        HELMSUBST_DEPLOYMENT_AUDIT_POD_SECURITY_CONTEXT: ""
+      affinity:
+        HELMSUBST_DEPLOYMENT_AUDIT_AFFINITY: ""
+      tolerations:
+        HELMSUBST_DEPLOYMENT_AUDIT_TOLERATIONS: ""
+      imagePullSecrets:
+        HELMSUBST_DEPLOYMENT_AUDIT_IMAGE_PULL_SECRETS: ""
+      hostNetwork: HELMSUBST_DEPLOYMENT_AUDIT_HOST_NETWORK
+      dnsPolicy: HELMSUBST_DEPLOYMENT_AUDIT_DNS_POLICY
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  annotations: HELMSUBST_SECRET_ANNOTATIONS
+  name: gatekeeper-webhook-server-cert
+  namespace: gatekeeper-system
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    gatekeeper.sh/system: "yes"
+  name: gatekeeper-mutating-webhook-configuration
+webhooks:
+- clientConfig:
+    service:
+      name: gatekeeper-webhook-service
+      namespace: gatekeeper-system
+      path: /v1/mutate
+  failurePolicy: HELMSUBST_MUTATING_WEBHOOK_FAILURE_POLICY
+  reinvocationPolicy: HELMSUBST_MUTATING_WEBHOOK_REINVOCATION_POLICY
+  rules:
+  - HELMSUBST_MUTATING_WEBHOOK_OPERATION_RULES
+  matchPolicy: Exact
+  name: mutation.gatekeeper.sh
+  namespaceSelector:
+    matchExpressions:
+    - key: admission.gatekeeper.sh/ignore
+      operator: DoesNotExist
+    - HELMSUBST_MUTATING_WEBHOOK_EXEMPT_NAMESPACE_LABELS
+  objectSelector: HELMSUBST_MUTATING_WEBHOOK_OBJECT_SELECTOR
+  sideEffects: None
+  timeoutSeconds: HELMSUBST_MUTATING_WEBHOOK_TIMEOUT
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    gatekeeper.sh/system: "yes"
+  name: gatekeeper-validating-webhook-configuration
+webhooks:
+- clientConfig:
+    service:
+      name: gatekeeper-webhook-service
+      namespace: gatekeeper-system
+      path: /v1/admit
+  name: validation.gatekeeper.sh
+  namespaceSelector:
+    matchExpressions:
+    - key: admission.gatekeeper.sh/ignore
+      operator: DoesNotExist
+    - HELMSUBST_VALIDATING_WEBHOOK_EXEMPT_NAMESPACE_LABELS
+  objectSelector: HELMSUBST_VALIDATING_WEBHOOK_OBJECT_SELECTOR
+  timeoutSeconds: HELMSUBST_VALIDATING_WEBHOOK_TIMEOUT
+  failurePolicy: HELMSUBST_VALIDATING_WEBHOOK_FAILURE_POLICY
+  rules:
+  - HELMSUBST_VALIDATING_WEBHOOK_OPERATION_RULES
+- clientConfig:
+    service:
+      name: gatekeeper-webhook-service
+      namespace: gatekeeper-system
+      path: /v1/admitlabel
+  name: check-ignore-label.gatekeeper.sh
+  timeoutSeconds: HELMSUBST_VALIDATING_WEBHOOK_TIMEOUT
+  failurePolicy: HELMSUBST_VALIDATING_WEBHOOK_CHECK_IGNORE_FAILURE_POLICY
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: gatekeeper-controller-manager
+  namespace: gatekeeper-system
+spec:
+  minAvailable: HELMSUBST_PDB_CONTROLLER_MANAGER_MINAVAILABLE
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+      gatekeeper.sh/operation: webhook
+      gatekeeper.sh/system: "yes"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: critical-pods
+  namespace: system
+spec:
+  hard:
+    pods: HELMSUBST_RESOURCEQUOTA_POD_LIMIT
+  scopeSelector:
+    matchExpressions:
+    - operator: In
+      scopeName: PriorityClass
+      values:
+      - HELMSUBST_DEPLOYMENT_CONTROLLER_MANAGER_PRIORITY_CLASS_NAME
+      - HELMSUBST_DEPLOYMENT_AUDIT_PRIORITY_CLASS_NAME

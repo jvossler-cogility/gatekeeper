@@ -1,0 +1,20 @@
+#!/bin/bash
+
+###set -x
+
+for FIL in `ls -1 ./golden/*yaml`
+do
+	cmp -s ${FIL} /Users/johnvossler/git/cogynt-delivery/manifests/gatekeeper-system/gatekeeper/`basename ${FIL}`
+	if [ $? -ne 0 ]
+	then
+		echo ""
+		echo "========================================================================================================="
+		echo ""
+		echo ${FIL}
+		echo ""
+		diff ${FIL} /Users/johnvossler/git/cogynt-delivery/manifests/gatekeeper-system/gatekeeper/`basename ${FIL}`
+	fi
+done
+
+exit 0
+

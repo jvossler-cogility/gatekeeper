@@ -1,0 +1,82 @@
+---
+# Source: gatekeeper/templates/gatekeeper-validating-webhook-configuration-validatingwebhookconfiguration.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    app: 'gatekeeper'
+    chart: 'gatekeeper'
+    gatekeeper.sh/system: "yes"
+    heritage: 'Helm'
+    release: 'gatekeeper'
+  name: gatekeeper-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: gatekeeper-webhook-service
+      namespace: 'gatekeeper-system'
+      path: /v1/admit
+  failurePolicy: Ignore
+  matchPolicy: Exact
+  name: validation.gatekeeper.sh
+  namespaceSelector:
+    matchExpressions:
+    - key: admission.gatekeeper.sh/ignore
+      operator: DoesNotExist
+  objectSelector: {}
+  rules:
+  - apiGroups:
+    - '*'
+    apiVersions:
+    - '*'
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - '*'
+    # Explicitly list all known subresources except "status" (to avoid destabilizing the cluster and increasing load on gatekeeper).
+    # You can find a rough list of subresources by doing a case-sensitive search in the Kubernetes codebase for 'Subresource("'
+    - 'pods/ephemeralcontainers'
+    - 'pods/exec'
+    - 'pods/log'
+    - 'pods/eviction'
+    - 'pods/portforward'
+    - 'pods/proxy'
+    - 'pods/attach'
+    - 'pods/binding'
+    - 'deployments/scale'
+    - 'replicasets/scale'
+    - 'statefulsets/scale'
+    - 'replicationcontrollers/scale'
+    - 'services/proxy'
+    - 'nodes/proxy'
+    # For constraints that mitigate CVE-2020-8554
+    - 'services/status'
+  sideEffects: None
+  timeoutSeconds: 3
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: gatekeeper-webhook-service
+      namespace: 'gatekeeper-system'
+      path: /v1/admitlabel
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: check-ignore-label.gatekeeper.sh
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - '*'
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - namespaces
+  sideEffects: None
+  timeoutSeconds: 3

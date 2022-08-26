@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dummy-provider
+  namespace: gatekeeper-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: dummy-provider
+  template:
+    metadata:
+      labels:
+        run: dummy-provider
+    spec:
+      containers:
+      - image: dummy-provider:test
+        imagePullPolicy: Never
+        name: dummy-provider
+        ports:
+        - containerPort: 8090
+          protocol: TCP
+        volumeMounts:
+        - name: gatekeeper-ca-cert
+          mountPath: /tmp/gatekeeper
+          readOnly: true
+      restartPolicy: Always
+      nodeSelector:
+        kubernetes.io/os: linux
+      volumes:
+      - name: gatekeeper-ca-cert
+        secret:
+          secretName: gatekeeper-webhook-server-cert
+          items:
+          - key: ca.crt
+            path: ca.crt

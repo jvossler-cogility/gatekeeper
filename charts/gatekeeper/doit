@@ -1,0 +1,54 @@
+#!/bin/bash
+
+###set -x
+
+if [ -z "${1}" ]
+then
+	for VERS in 9 8 7 6 5 4 3 2 1 0
+	do
+		ls -l ./manifest-${VERS}
+		if [ -d ./manifest-${VERS} ]
+		then
+			APP=`expr ${VERS} + 1`
+			mv ./manifest-${VERS} ./manifest-${APP}
+		fi
+	done
+
+	###helm template gatekeeper . --output-dir ./manifest-0  --values ./values.yaml --skip-tests
+	helm template gatekeeper . --output-dir ./manifest-0  --values ./values.yaml --create-namespace -n gatekeeper-system
+fi
+
+# See what has changed and is different from the current manifest files
+for FIL in `ls -1 ./manifest-0/gatekeeper/templates/*yaml`
+do
+	cmp -s ${FIL} /Users/johnvossler/git/cogynt-delivery/manifests/gatekeeper-system/gatekeeper/`basename ${FIL}`
+	if [ $? -ne 0 ]
+	then
+		echo ""
+		echo "================================================================================================"
+		echo ""
+		echo ${FIL}
+		echo ""
+		diff ${FIL} /Users/johnvossler/git/cogynt-delivery/manifests/gatekeeper-system/gatekeeper/`basename ${FIL}`
+	fi
+done
+echo ""
+echo "================================================================================================"
+echo ""
+
+# What files are in the manifest that do not exist here.
+echo ""
+echo "Files in Manifest that are not generated"
+echo ""
+for FIL in `ls -1 /Users/johnvossler/git/cogynt-delivery/manifests/gatekeeper-system/gatekeeper/*yaml`
+do
+	if [ ! -f ./manifest-0/gatekeeper/templates/`basename ${FIL}` ]
+	then
+		echo ${FIL}
+	fi
+done
+echo ""
+echo ""
+
+exit 0
+

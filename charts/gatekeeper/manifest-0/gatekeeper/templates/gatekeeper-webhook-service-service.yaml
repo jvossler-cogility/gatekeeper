@@ -1,0 +1,27 @@
+---
+# Source: gatekeeper/templates/gatekeeper-webhook-service-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: 'gatekeeper'
+    chart: 'gatekeeper'
+    gatekeeper.sh/system: "yes"
+    heritage: 'Helm'
+    release: 'gatekeeper'
+  name: gatekeeper-webhook-service
+  namespace: 'gatekeeper-system'
+spec:
+  
+  ports:
+  - name: https-webhook-server
+    port: 443
+    targetPort: webhook-server
+  selector:
+    app: 'gatekeeper'
+    chart: 'gatekeeper'
+    control-plane: controller-manager
+    gatekeeper.sh/operation: webhook
+    gatekeeper.sh/system: "yes"
+    heritage: 'Helm'
+    release: 'gatekeeper'

@@ -1,0 +1,140 @@
+---
+# Source: gatekeeper/templates/namespace-post-install.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gatekeeper-update-namespace-label
+  labels:
+    release: gatekeeper
+    heritage: Helm
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+---
+# Source: gatekeeper/templates/namespace-post-install.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gatekeeper-update-namespace-label
+  labels:
+    release: gatekeeper
+    heritage: Helm
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - update
+      - patch
+    resourceNames:
+      - gatekeeper-system
+---
+# Source: gatekeeper/templates/namespace-post-install.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gatekeeper-update-namespace-label
+  labels:
+    release: gatekeeper
+    heritage: Helm
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gatekeeper-update-namespace-label
+subjects:
+  - kind: ServiceAccount
+    name: gatekeeper-update-namespace-label
+    namespace: "gatekeeper-system"
+---
+# Source: gatekeeper/templates/namespace-post-install.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gatekeeper-update-namespace-label
+  labels:
+    app: 'gatekeeper'
+    chart: 'gatekeeper'
+    gatekeeper.sh/system: "yes"
+    heritage: 'Helm'
+    release: 'gatekeeper'
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      annotations:
+        {}
+      labels:
+        app: 'gatekeeper'
+        release: 'gatekeeper'
+    spec:
+      restartPolicy: OnFailure
+      serviceAccount: gatekeeper-update-namespace-label
+      nodeSelector:
+        kubernetes.io/os: linux
+      volumes:
+        - name: cert
+          secret:
+            secretName: gatekeeper-webhook-server-cert
+      initContainers:
+        - name: webhook-probe-post
+          image: "curlimages/curl:7.83.1"
+          imagePullPolicy: Always
+          args:
+            - "--retry"
+            - "99999"
+            - "--retry-max-time"
+            - "60"
+            - "--retry-delay"
+            - "1"
+            - "--max-time"
+            - "2"
+            - "--cacert"
+            - /certs/ca.crt
+            - "-v"
+            - "https://gatekeeper-webhook-service.gatekeeper-system.svc/v1/admitlabel?timeout=2s"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - all
+            readOnlyRootFilesystem: true
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 1000
+          volumeMounts:
+          - mountPath: /certs
+            name: cert
+            readOnly: true
+      containers:
+        - name: kubectl-label
+          image: "openpolicyagent/gatekeeper-crds:v3.10.0-beta.0"
+          imagePullPolicy: Always
+          args:
+            - label
+            - ns
+            - gatekeeper-system
+            - admission.gatekeeper.sh/ignore=no-self-managing
+            - --overwrite
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - all
+            readOnlyRootFilesystem: true
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 1000
